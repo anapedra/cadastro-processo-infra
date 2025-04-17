@@ -10,6 +10,10 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    defaults:
+      run:
+        working-directory: back/cadastros-usuario  
+
     services:
       postgres:
         image: postgres:14
@@ -36,7 +40,7 @@ jobs:
           java-version: '17'
 
       - name: Permitir execução do Maven wrapper
-        run: chmod +x back/cadastros-usuario/mvnw
+        run: chmod +x ./mvnw
 
       - name: Rodar build e testes
-        run: back/cadastros-usuario/mvnw clean test
+        run: ./mvnw clean test
