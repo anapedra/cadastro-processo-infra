@@ -8,6 +8,10 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
 
+    defaults:
+      run:
+        working-directory: back/cadastros-usuario  # ✔️ correto
+
     steps:
       - name: Checkout do código
         uses: actions/checkout@v4
@@ -17,6 +21,9 @@ jobs:
         with:
           distribution: 'corretto'
           java-version: '17'
+
+      - name: Dar permissão ao Maven Wrapper
+        run: chmod +x ./mvnw
 
       - name: Build do JAR
         run: ./mvnw clean package -DskipTests
@@ -29,4 +36,4 @@ jobs:
 
       - name: Executar app na EC2
         run: |
-          ssh -o StrictHostKeyChecking=no -i ec2_key.pem $EC2_USER@$EC2_HOST 'nohup java -jar /home/'$EC2_USER'/app.jar > app.log 2>&1 &'
+          ssh -o StrictHostKeyChecking=no -i ec2_key.pem $EC2_USER@$EC2_HOST 'nohup java -jar /home/$EC2_USER/app.jar > app.log 2>&1 &'
