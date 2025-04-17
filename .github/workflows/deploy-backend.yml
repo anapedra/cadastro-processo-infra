@@ -30,5 +30,6 @@ jobs:
           scp -o StrictHostKeyChecking=no -i ec2_key.pem target/*.jar $EC2_USER@$EC2_HOST:/home/$EC2_USER/app.jar
 
       - name: Executar app na EC2
+        working-directory: back/cadastros-usuario
         run: |
-          ssh -o StrictHostKeyChecking=no -i back/cadastros-usuario/ec2_key.pem $EC2_USER@$EC2_HOST 'nohup java -jar /home/'$EC2_USER'/app.jar > app.log 2>&1 &'
+          ssh -o StrictHostKeyChecking=no -i ec2_key.pem $EC2_USER@$EC2_HOST 'nohup java -jar /home/'$EC2_USER'/app.jar > app.log 2>&1 &'
