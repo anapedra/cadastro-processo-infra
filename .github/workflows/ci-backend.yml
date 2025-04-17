@@ -36,7 +36,7 @@ jobs:
           java-version: '17'
 
       - name: Permitir execução do Maven wrapper
-        run: chmod +x ./mvnw
+        run: chmod +x back/cadastros-usuario/mvnw
 
       - name: Rodar build e testes
-        run: ./mvnw clean test
+        run: back/cadastros-usuario/mvnw clean test
