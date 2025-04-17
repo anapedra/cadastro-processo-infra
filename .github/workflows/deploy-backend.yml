@@ -23,11 +23,12 @@ jobs:
         run: ./mvnw clean package -DskipTests
 
       - name: Copiar JAR para EC2 via SSH
+        working-directory: back/cadastros-usuario
         run: |
           echo "$EC2_KEY" > ec2_key.pem
           chmod 600 ec2_key.pem
-          scp -o StrictHostKeyChecking=no -i ec2_key.pem back/cadastros-usuario/target/*.jar $EC2_USER@$EC2_HOST:/home/$EC2_USER/app.jar
+          scp -o StrictHostKeyChecking=no -i ec2_key.pem target/*.jar $EC2_USER@$EC2_HOST:/home/$EC2_USER/app.jar
 
       - name: Executar app na EC2
         run: |
-          ssh -o StrictHostKeyChecking=no -i ec2_key.pem $EC2_USER@$EC2_HOST 'nohup java -jar /home/'$EC2_USER'/app.jar > app.log 2>&1 &'
+          ssh -o StrictHostKeyChecking=no -i back/cadastros-usuario/ec2_key.pem $EC2_USER@$EC2_HOST 'nohup java -jar /home/'$EC2_USER'/app.jar > app.log 2>&1 &'
