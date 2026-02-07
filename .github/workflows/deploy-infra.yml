@@ -42,9 +42,9 @@ jobs:
       - name: Deploy fundacao
         run: |
           aws cloudformation deploy \
-            --stack-name cadastro-fundacao-dev \
+            --stack-name cadastro-fundacao-prod \
             --template-file infra/templates/modulos/fundacao/master-fundacao.yaml \
-            --parameter-overrides file://infra/templates/modulos/fundacao/environments-fundacao/dev/parametros-dev.json \
+            --parameter-overrides file://infra/templates/modulos/fundacao/environments-fundacao/prod/parametros-prod.json \
             --capabilities CAPABILITY_NAMED_IAM
 
 
@@ -76,10 +76,10 @@ jobs:
       - name: Deploy aplicacao
         run: |
           aws cloudformation deploy \
-            --stack-name cadastro-aplicacao-dev \
+            --stack-name cadastro-aplicacao-prod \
             --template-file infra/templates/modulos/aplicacao/master-aplicacao.yaml \
             --parameter-overrides \
-              file://infra/templates/modulos/aplicacao/environments-aplicacao/dev/parametros-dev.json \
+              file://infra/templates/modulos/aplicacao/environments-aplicacao/prod/parametros-prod.json \
               CertificateArn=${{ vars.CERTIFICATE_ARN }} \
             --capabilities CAPABILITY_NAMED_IAM
 
@@ -142,9 +142,9 @@ jobs:
       - name: Deploy entrega
         run: |
           aws cloudformation deploy \
-            --stack-name cadastro-entrega-dev \
+            --stack-name cadastro-entrega-prod \
             --template-file infra/templates/modulos/entrega/master-entrega.yaml \
-            --parameter-overrides file://infra/templates/modulos/entrega/environments-entrega/dev/parametros-dev.json \
+            --parameter-overrides file://infra/templates/modulos/entrega/environments-entrega/prod/parametros-prod.json \
             --capabilities CAPABILITY_NAMED_IAM
 
 
@@ -169,8 +169,8 @@ jobs:
       - name: Deploy DNS
         run: |
           aws cloudformation deploy \
-            --stack-name cadastro-dns-dev \
+            --stack-name cadastro-dns-prod \
             --template-file infra/templates/modulos/dns/route53.yaml \
             --parameter-overrides \
-              file://infra/templates/modulos/dns/environments-dns/dev/parametros-dev.json \
+              file://infra/templates/modulos/dns/environments-dns/prod/parametros-prod.json \
               HostedZoneId=${{ vars.HOSTED_ZONE_ID }}

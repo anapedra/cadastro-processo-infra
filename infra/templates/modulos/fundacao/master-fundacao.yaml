@@ -11,11 +11,15 @@ Parameters:
   DBName:
     Type: String
 
+  # CORREÇÃO: Busca automática no SSM
   DBUser:
-    Type: String
+    Type: 'AWS::SSM::Parameter::Value<String>'
+    Default: '/cadastro/prod/db/user'
 
+  # CORREÇÃO: Busca automática no SSM
   DBPassword:
-    Type: String
+    Type: 'AWS::SSM::Parameter::Value<String>'
+    Default: '/cadastro/prod/db/password'
     NoEcho: true
 
 Resources:
@@ -55,13 +59,11 @@ Resources:
 
 
 Outputs:
-  # Exportando o ID da Rede
   VpcId:
     Value: !GetAtt StackRede.Outputs.VpcId
     Export:
       Name: !Sub "${AWS::StackName}-VpcId"
 
-  # Exportando Subnets para o Load Balancer (Publicas) e App (Privadas)
   PublicSubnet1:
     Value: !GetAtt StackRede.Outputs.PublicSubnet1
     Export:
@@ -77,7 +79,6 @@ Outputs:
     Export:
       Name: !Sub "${AWS::StackName}-PrivateSubnets"
 
-  # Exportando Segurança
   BackendSG:
     Value: !GetAtt StackSeguranca.Outputs.BackendSG
     Export:
@@ -93,7 +94,6 @@ Outputs:
     Export:
       Name: !Sub "${AWS::StackName}-InstanceProfile"
 
-  # Exportando o Banco
   DBEndpoint:
     Value: !GetAtt StackBanco.Outputs.Endpoint
     Export:
