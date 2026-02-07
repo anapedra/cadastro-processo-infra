@@ -83,3 +83,4 @@ async function handleForm(event) {
 document.addEventListener("DOMContentLoaded", () => {
     fetchUsers();
 });
+//ssh -i key-mycadastro.pem ec2-user@34.238.251.60
