@@ -1,7 +1,7 @@
 [
   {
     "ParameterKey": "ProjetoNome",
-    "ParameterValue": "user-service-dev"
+    "ParameterValue": "user-service-prod"
   },
   {
     "ParameterKey": "HostedZoneId",
