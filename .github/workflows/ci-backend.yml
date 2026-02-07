@@ -3,13 +3,18 @@ name: CI - Build and Test (Develop)
 on:
   push:
     branches: [ develop ]
+    paths:
+      - 'back/**'  # O CI só roda se houver mudanças na pasta do backend
   pull_request:
     branches: [ develop ]
+    paths:
+      - 'back/**'  # Evita que mudanças apenas na infra quebrem o build do backend
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
+    # Mantemos o diretório padrão para todos os 'run' deste job
     defaults:
       run:
         working-directory: back/cadastros-usuario  
@@ -40,7 +45,13 @@ jobs:
           java-version: '17'
 
       - name: Permitir execução do Maven wrapper
-        run: chmod +x ./mvnw
+        # O working-directory garante que o shell já esteja na pasta correta
+        run: chmod +x mvnw
 
       - name: Rodar build e testes
-        run: ./mvnw clean test
+        # Injetamos as propriedades do banco via linha de comando para garantir sucesso no teste
+        run: |
+          ./mvnw clean test \
+            -Dspring.datasource.url=jdbc:postgresql://localhost:5432/cadastro_user_db \
+            -Dspring.datasource.username=ana \
+            -Dspring.datasource.password=230406
