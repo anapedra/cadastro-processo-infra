@@ -11,17 +11,6 @@ Parameters:
   DBName:
     Type: String
 
-  # CORREÇÃO: Busca automática no SSM
-  DBUser:
-    Type: 'AWS::SSM::Parameter::Value<String>'
-    Default: '/cadastro/prod/db/user'
-
-  # CORREÇÃO: Busca automática no SSM
-  DBPassword:
-    Type: 'AWS::SSM::Parameter::Value<String>'
-    Default: '/cadastro/prod/db/password'
-    NoEcho: true
-
 Resources:
 
   StackRede:
@@ -54,8 +43,9 @@ Resources:
         PrivateSubnets: !GetAtt StackRede.Outputs.PrivateSubnets
         DBSecurityGroup: !GetAtt StackSeguranca.Outputs.DBSG
         DBName: !Ref DBName
-        DBUser: !Ref DBUser
-        DBPassword: !Ref DBPassword
+        # CORREÇÃO: Uso de Dynamic Reference para SecureString
+        DBUser: '{{resolve:ssm-secure:/cadastro/prod/db/user:1}}'
+        DBPassword: '{{resolve:ssm-secure:/cadastro/prod/db/password:1}}'
 
 
 Outputs:
