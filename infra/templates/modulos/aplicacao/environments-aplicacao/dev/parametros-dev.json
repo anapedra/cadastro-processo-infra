@@ -1,0 +1,10 @@
+[
+  {
+    "ParameterKey": "ProjetoNome",
+    "ParameterValue": "user-service-dev"
+  },
+  {
+    "ParameterKey": "FundacaoStack",
+    "ParameterValue": "cadastro-fundacao-dev"
+  }
+]

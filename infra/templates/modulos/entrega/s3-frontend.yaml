@@ -1,0 +1,62 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Bucket S3 para hospedar os arquivos do Front-end.
+
+Parameters:
+  ProjetoNome:
+    Type: String
+
+Resources:
+
+  ########################################
+  # Bucket privado (somente CloudFront)
+  ########################################
+  FrontendBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${ProjetoNome}-frontend-bucket-${AWS::AccountId}"
+
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: index.html
+
+
+  ########################################
+  # PERMISSÃO PARA O CLOUDFRONT (OAC)
+  ########################################
+  FrontendBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref FrontendBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowCloudFrontRead
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action:
+              - s3:GetObject
+            Resource: !Sub "${FrontendBucket.Arn}/*"
+            Condition:
+              StringEquals:
+                AWS:SourceAccount: !Ref AWS::AccountId
+
+
+########################################
+# OUTPUTS
+########################################
+Outputs:
+  BucketName:
+    Value: !Ref FrontendBucket
+
+  BucketDomainName:
+    Value: !GetAtt FrontendBucket.RegionalDomainName
+
+  BucketArn:
+    Value: !GetAtt FrontendBucket.Arn

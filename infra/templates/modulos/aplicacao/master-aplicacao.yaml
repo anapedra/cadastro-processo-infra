@@ -1,0 +1,63 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Orquestrador da Camada de Aplicacao (ALB + ASG com HTTPS)
+
+Parameters:
+  ProjetoNome:
+    Type: String
+
+  FundacaoStack:
+    Type: String
+
+  # ===============================
+  # NOVO: recebe o certificado TLS
+  # Necessário porque o alb.yaml agora exige CertificateArn
+  # Valor virá do GitHub Actions (vars.CERTIFICATE_ARN)
+  # ===============================
+  CertificateArn:
+    Type: String
+
+
+Resources:
+
+  # ===============================
+  # Stack do ALB (HTTPS habilitado)
+  # Agora passamos CertificateArn para o template filho
+  # ===============================
+  StackALB:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://asantanadev-cfn-templates.s3.amazonaws.com/alb.yaml
+      Parameters:
+        ProjetoNome: !Ref ProjetoNome
+        FundacaoStack: !Ref FundacaoStack
+        CertificateArn: !Ref CertificateArn
+
+
+  # ===============================
+  # Stack do ASG (sem mudanças)
+  # Continua apenas recebendo o TargetGroup do ALB
+  # ===============================
+  StackASG:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: StackALB
+    Properties:
+      TemplateURL: https://asantanadev-cfn-templates.s3.amazonaws.com/asg.yaml
+      Parameters:
+        ProjetoNome: !Ref ProjetoNome
+        FundacaoStack: !Ref FundacaoStack
+        TargetGroupArn: !GetAtt StackALB.Outputs.TargetGroupArn
+
+
+Outputs:
+  AppURL:
+    Description: URL publica da aplicacao (agora via HTTPS)
+    Value: !GetAtt StackALB.Outputs.AppURL
+    Export:
+      Name: !Sub "${AWS::StackName}-AppURL"
+
+  AsgName:
+    Description: Nome do AutoScalingGroup
+    Value: !GetAtt StackASG.Outputs.AsgName
+    Export:
+      Name: !Sub "${AWS::StackName}-AsgName"
+

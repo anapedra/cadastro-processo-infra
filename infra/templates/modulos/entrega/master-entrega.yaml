@@ -1,0 +1,36 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Orquestrador da Camada de Entrega (Front-end).
+
+Parameters:
+  ProjetoNome:
+    Type: String
+
+Resources:
+  StackS3:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://asantanadev-cfn-templates.s3.amazonaws.com/s3-frontend.yaml
+      Parameters:
+        ProjetoNome: !Ref ProjetoNome
+
+  StackCloudFront:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: StackS3
+    Properties:
+      TemplateURL: https://asantanadev-cfn-templates.s3.amazonaws.com/cloudfront.yaml
+      Parameters:
+        ProjetoNome: !Ref ProjetoNome
+        S3BucketDomainName: !GetAtt StackS3.Outputs.BucketDomainName
+        S3BucketArn: !GetAtt StackS3.Outputs.BucketArn
+
+Outputs:
+
+  CloudFrontDomainName:
+    Description: Dominio do CloudFront
+    Value: !GetAtt StackCloudFront.Outputs.CloudFrontDomainName
+    Export:
+      Name: !Sub "${ProjetoNome}-CloudFrontDomain"
+
+  SiteURL:
+    Description: URL final do site
+    Value: !Sub "https://${StackCloudFront.Outputs.CloudFrontDomainName}"
