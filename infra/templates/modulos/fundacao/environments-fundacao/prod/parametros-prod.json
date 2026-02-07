@@ -1,0 +1,6 @@
+[
+  { "ParameterKey": "ProjetoNome", "ParameterValue": "user-service-prod" },
+  { "ParameterKey": "VpcCIDR", "ParameterValue": "10.0.0.0/16" },
+  { "ParameterKey": "DBName", "ParameterValue": "cadastros_usuario" },
+  { "ParameterKey": "DBUser", "ParameterValue": "postgres_admin" }
+]
