@@ -1,0 +1,46 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Distribuicao CloudFront para o Front-end.
+
+Parameters:
+  ProjetoNome:
+    Type: String
+  S3BucketDomainName:
+    Type: String
+  S3BucketArn:
+    Type: String
+
+Resources:
+  # Permissao para o CloudFront ler o S3 privado
+  CloudFrontOriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Description: "Acesso ao S3 do Frontend"
+        Name: !Sub "${ProjetoNome}-OAC"
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  # A distribuicao propriamente dita
+  Distribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        DefaultRootObject: index.html
+        Origins:
+          - Id: FrontendS3Origin
+            DomainName: !Ref S3BucketDomainName
+            S3OriginConfig:
+              OriginAccessIdentity: ""
+            OriginAccessControlId: !GetAtt CloudFrontOriginAccessControl.Id
+        DefaultCacheBehavior:
+          TargetOriginId: FrontendS3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6 # CachingOptimized
+          ForwardedValues:
+            QueryString: false
+
+Outputs:
+  CloudFrontDomainName:
+    Value: !GetAtt Distribution.DomainName

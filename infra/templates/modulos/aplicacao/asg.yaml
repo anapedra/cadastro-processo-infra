@@ -1,0 +1,112 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: ASG e Launch Template - Automação total (Download S3 + Auto Run).
+
+Parameters:
+  ProjetoNome:
+    Type: String
+  FundacaoStack:
+    Type: String
+  TargetGroupArn:
+    Type: String
+
+Resources:
+  BackendLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: !Sub "${ProjetoNome}-lt"
+      LaunchTemplateData:
+        ImageId: ami-0c101f26f147fa7fd
+        InstanceType: t3.micro
+
+        IamInstanceProfile:
+          Name: !ImportValue 
+            Fn::Sub: "${FundacaoStack}-InstanceProfile"
+
+        SecurityGroupIds:
+          - !ImportValue 
+            Fn::Sub: "${FundacaoStack}-BackendSG"
+
+        UserData:
+          Fn::Base64:
+            Fn::Sub:
+              - |
+                #!/bin/bash
+                exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
+
+                # =========================================
+                # 1. Instala dependências
+                # =========================================
+                yum update -y
+                yum install -y java-17-amazon-corretto-devel aws-cli
+
+                # =========================================
+                # 2. Baixa JAR do S3 (igual antes)
+                # =========================================
+                aws s3 cp s3://asantanadev-cfn-templates/app.jar /home/ec2-user/app.jar
+                chown ec2-user:ec2-user /home/ec2-user/app.jar
+
+                # =========================================
+                # 3. BUSCA USER E PASSWORD DO PARAMETER STORE
+                # (SUBSTITUI hardcoded postgres_admin + senha)
+                # =========================================
+                DB_USER=$(aws ssm get-parameter \
+                  --name "/cadastro/prod/db/user" \
+                  --with-decryption \
+                  --query "Parameter.Value" \
+                  --output text)
+
+                DB_PASSWORD=$(aws ssm get-parameter \
+                  --name "/cadastro/prod/db/password" \
+                  --with-decryption \
+                  --query "Parameter.Value" \
+                  --output text)
+
+                # =========================================
+                # 4. Cria run.sh (SEM credenciais no código)
+                # =========================================
+                cat <<EOF > /home/ec2-user/run.sh
+                #!/bin/bash
+                java -Xmx512m -jar /home/ec2-user/app.jar \
+                  --spring.profiles.active=prod \
+                  --spring.datasource.url=jdbc:postgresql://${DBHost}:5432/cadastros_usuario \
+                  --spring.datasource.username=$DB_USER \
+                  --spring.datasource.password=$DB_PASSWORD
+                EOF
+
+                chmod +x /home/ec2-user/run.sh
+                chown ec2-user:ec2-user /home/ec2-user/run.sh
+
+                # =========================================
+                # 5. Inicia app (igual antes)
+                # =========================================
+                sudo -u ec2-user nohup /home/ec2-user/run.sh > /home/ec2-user/app.log 2>&1 &
+
+              - DBHost: !ImportValue 
+                  Fn::Sub: "${FundacaoStack}-DBEndpoint"
+
+  BackendASG:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: !Sub "${ProjetoNome}-asg"
+
+      VPCZoneIdentifier:
+        - !Select [0, !Split [",", !ImportValue {"Fn::Sub": "${FundacaoStack}-PrivateSubnets"}]]
+        - !Select [1, !Split [",", !ImportValue {"Fn::Sub": "${FundacaoStack}-PrivateSubnets"}]]
+
+      LaunchTemplate:
+        LaunchTemplateId: !Ref BackendLaunchTemplate
+        Version: !GetAtt BackendLaunchTemplate.LatestVersionNumber
+
+      MinSize: '1'
+      MaxSize: '2'
+
+      TargetGroupARNs:
+        - !Ref TargetGroupArn
+
+      HealthCheckType: ELB
+      HealthCheckGracePeriod: 300
+
+Outputs:
+  AsgName:
+    Value: !Ref BackendASG
+

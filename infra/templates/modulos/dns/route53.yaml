@@ -1,0 +1,47 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Configuracao de DNS no Route 53 para Frontend (CloudFront) e Backend (ALB).
+
+Parameters:
+  ProjetoNome:
+    Type: String
+  HostedZoneId:
+    Type: String
+  DominioNome:
+    Type: String
+  ALBDomain:
+    Type: String
+
+Resources:
+  # FRONTEND → CloudFront
+  FrontendRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Sub "${DominioNome}."
+      Type: A
+      AliasTarget:
+        DNSName: !ImportValue 
+          Fn::Sub: "${ProjetoNome}-CloudFrontDomain"
+        HostedZoneId: Z2FDTNDATAQYW2 # ID fixo mundial do CloudFront
+        EvaluateTargetHealth: false
+
+  # BACKEND → ALB (Alterado para Alias Tipo A)
+  BackendRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Sub "api.${DominioNome}."
+      Type: A
+      AliasTarget:
+        DNSName: !Ref ALBDomain
+        # ID da zona do ALB em us-east-1 é fixo: Z35SXDOTRQ7X7K
+        HostedZoneId: Z35SXDOTRQ7X7K 
+        EvaluateTargetHealth: true
+
+Outputs:
+  SiteURL:
+    Description: URL do frontend
+    Value: !Sub "https://${DominioNome}"
+  ApiURL:
+    Description: URL da API
+    Value: !Sub "https://api.${DominioNome}"
