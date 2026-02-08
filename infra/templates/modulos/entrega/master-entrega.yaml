@@ -4,8 +4,10 @@ Description: Orquestrador da Camada de Entrega (Front-end).
 Parameters:
   ProjetoNome:
     Type: String
+    Description: Nome do projeto para compor os nomes dos recursos e exports.
 
 Resources:
+  # Stack de infraestrutura de armazenamento (S3)
   StackS3:
     Type: AWS::CloudFormation::Stack
     Properties:
@@ -13,6 +15,7 @@ Resources:
       Parameters:
         ProjetoNome: !Ref ProjetoNome
 
+  # Stack de distribuição e cache (CloudFront)
   StackCloudFront:
     Type: AWS::CloudFormation::Stack
     DependsOn: StackS3
@@ -24,13 +27,12 @@ Resources:
         S3BucketArn: !GetAtt StackS3.Outputs.BucketArn
 
 Outputs:
-
   CloudFrontDomainName:
-    Description: Dominio do CloudFront
+    Description: Dominio gerado pelo CloudFront
     Value: !GetAtt StackCloudFront.Outputs.CloudFrontDomainName
     Export:
-      Name: !Sub "${ProjetoNome}-CloudFrontDomain"
+      Name: !Sub "${ProjetoNome}-CloudFrontURL" 
 
   SiteURL:
-    Description: URL final do site
+    Description: URL final do site com protocolo HTTPS
     Value: !Sub "https://${StackCloudFront.Outputs.CloudFrontDomainName}"
