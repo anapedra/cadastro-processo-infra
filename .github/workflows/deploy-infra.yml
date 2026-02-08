@@ -121,7 +121,7 @@ jobs:
               ProjetoNome=${{ vars.STACK_NAME }}
 
 # =========================================
-# DNS (Route53)
+# DNS (Route53) - A PONTA FINAL
 # =========================================
   dns:
     needs: entrega
@@ -141,4 +141,6 @@ jobs:
             --capabilities CAPABILITY_NAMED_IAM \
             --parameter-overrides \
               ProjetoNome=${{ vars.STACK_NAME }} \
-              HostedZoneId=${{ vars.HOSTED_ZONE_ID }}
+              HostedZoneId=${{ vars.HOSTED_ZONE_ID }} \
+              DominioNome=asantanadev.com \
+              ALBDomain=api.asantanadev.com
