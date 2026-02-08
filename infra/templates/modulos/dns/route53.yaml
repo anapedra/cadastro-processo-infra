@@ -12,7 +12,9 @@ Parameters:
     Type: String
 
 Resources:
-  # FRONTEND → CloudFront
+  # =========================================================
+  # FRONTEND (asantanadev.com) -> CloudFront
+  # =========================================================
   FrontendRecord:
     Type: AWS::Route53::RecordSet
     Properties:
@@ -20,21 +22,26 @@ Resources:
       Name: !Sub "${DominioNome}."
       Type: A
       AliasTarget:
+        # Importa o domínio gerado na stack de entrega
         DNSName: !ImportValue 
-          Fn::Sub: "${ProjetoNome}-CloudFrontDomain"
+          Fn::Sub: "cadastro-entrega-prod-CloudFrontURL"
         HostedZoneId: Z2FDTNDATAQYW2 # ID fixo mundial do CloudFront
         EvaluateTargetHealth: false
 
-  # BACKEND → ALB (Alterado para Alias Tipo A)
+  # =========================================================
+  # BACKEND (api.asantanadev.com) -> ALB
+  # =========================================================
   BackendRecord:
     Type: AWS::Route53::RecordSet
     Properties:
       HostedZoneId: !Ref HostedZoneId
-      Name: !Sub "api.${DominioNome}."
+      Name: !Sub "${ALBDomain}."
       Type: A
       AliasTarget:
-        DNSName: !Ref ALBDomain
-        # ID da zona do ALB em us-east-1 é fixo: Z35SXDOTRQ7X7K
+        # Importa o DNS do Load Balancer gerado na stack de aplicacao
+        DNSName: !ImportValue 
+          Fn::Sub: "cadastro-aplicacao-prod-AppURL"
+        # ID da zona do ALB em us-east-1 é fixo
         HostedZoneId: Z35SXDOTRQ7X7K 
         EvaluateTargetHealth: true
 
@@ -44,4 +51,4 @@ Outputs:
     Value: !Sub "https://${DominioNome}"
   ApiURL:
     Description: URL da API
-    Value: !Sub "https://api.${DominioNome}"
+    Value: !Sub "https://${ALBDomain}"
