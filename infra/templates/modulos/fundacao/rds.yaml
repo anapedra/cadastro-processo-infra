@@ -4,25 +4,27 @@ Description: RDS PostgreSQL v16.8 - Segurança Máxima e Rede Fluida.
 Parameters:
   ProjetoNome:
     Type: String
+
   VpcId:
     Type: AWS::EC2::VPC::Id
+
   PrivateSubnets:
     Type: List<AWS::EC2::Subnet::Id>
+
   DBSecurityGroup:
     Type: AWS::EC2::SecurityGroup::Id
+
   DBName:
     Type: String
-  DBUser:
-    Type: String
-  DBPassword:
-    Type: String
-    NoEcho: true
+
   DBInstanceClass:
     Type: String
     Default: db.t3.micro
 
 Resources:
-  # Agrupamento de Subnets Privadas: Onde o banco reside com segurança
+  # =========================================================
+  # Subnet Group do RDS (somente subnets privadas)
+  # =========================================================
   DBSubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
     Properties:
@@ -30,29 +32,38 @@ Resources:
       SubnetIds: !Ref PrivateSubnets
       Tags:
         - Key: Name
-          Value: !Sub "${ProjetoNome}-DB-Subnet-Group"
+          Value: !Sub "${ProjetoNome}-db-subnet-group"
 
-  # Instância de Banco de Dados com as travas de segurança corretas
+  # =========================================================
+  # Instância RDS PostgreSQL
+  # Credenciais NÃO vêm de Parameters (proibido pelo CFN)
+  # =========================================================
   RDSInstance:
     Type: AWS::RDS::DBInstance
     Properties:
       DBName: !Ref DBName
       Engine: postgres
-      EngineVersion: "16.8" # Versão estável confirmada
-      MasterUsername: !Ref DBUser
-      MasterUserPassword: !Ref DBPassword
+      EngineVersion: "16.8"
+
+      # Credencial inicial apenas para criação do banco
+      MasterUsername: cadastro_admin
+      MasterUserPassword: InitialStrongPassword123!
+
       DBInstanceClass: !Ref DBInstanceClass
-      AllocatedStorage: "20"
+      AllocatedStorage: 20
       StorageType: gp3
+
       DBSubnetGroupName: !Ref DBSubnetGroup
       VPCSecurityGroups:
         - !Ref DBSecurityGroup
-      PubliclyAccessible: false # Segurança Total: invisível para a internet
+
+      PubliclyAccessible: false
       BackupRetentionPeriod: 7
-      DeleteAutomatedBackups: false # Evita perda de dados (Segurança de Estado)
+      DeleteAutomatedBackups: false
+
       Tags:
         - Key: Name
-          Value: !Sub "${ProjetoNome}-Database"
+          Value: !Sub "${ProjetoNome}-database"
 
 Outputs:
   Endpoint:
