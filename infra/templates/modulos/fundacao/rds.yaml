@@ -1,25 +1,28 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: RDS PostgreSQL v16.8 - Segurança Máxima e Rede Fluida.
+Description: RDS PostgreSQL v16.8 - Segurança Máxima com Referência Dinâmica SSM.
 
 Parameters:
   ProjetoNome:
     Type: String
-
   VpcId:
     Type: AWS::EC2::VPC::Id
-
   PrivateSubnets:
     Type: List<AWS::EC2::Subnet::Id>
-
   DBSecurityGroup:
     Type: AWS::EC2::SecurityGroup::Id
-
   DBName:
     Type: String
-
   DBInstanceClass:
     Type: String
     Default: db.t3.micro
+
+  # Caminhos dos parâmetros no SSM Parameter Store
+  DBUserSSM:
+    Type: String
+    Default: /cadastro/prod/db/user
+  DBPasswordSSM:
+    Type: String
+    Default: /cadastro/prod/db/password
 
 Resources:
   # =========================================================
@@ -35,8 +38,7 @@ Resources:
           Value: !Sub "${ProjetoNome}-db-subnet-group"
 
   # =========================================================
-  # Instância RDS PostgreSQL
-  # Credenciais NÃO vêm de Parameters (proibido pelo CFN)
+  # Instância RDS PostgreSQL com Dynamic Reference
   # =========================================================
   RDSInstance:
     Type: AWS::RDS::DBInstance
@@ -45,14 +47,13 @@ Resources:
       Engine: postgres
       EngineVersion: "16.8"
 
-      # Credencial inicial apenas para criação do banco
-      MasterUsername: cadastro_admin
-      MasterUserPassword: InitialStrongPassword123!
+      # REFERÊNCIA DINÂMICA: Busca os valores reais no SSM durante o deploy
+      MasterUsername: !Sub '{{resolve:ssm-secure:${DBUserSSM}}}'
+      MasterUserPassword: !Sub '{{resolve:ssm-secure:${DBPasswordSSM}}}'
 
       DBInstanceClass: !Ref DBInstanceClass
       AllocatedStorage: 20
       StorageType: gp3
-
       DBSubnetGroupName: !Ref DBSubnetGroup
       VPCSecurityGroups:
         - !Ref DBSecurityGroup
