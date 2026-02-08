@@ -4,24 +4,23 @@ Description: Configuracao de DNS no Route 53 para Frontend (CloudFront) e Backen
 Parameters:
   ProjetoNome:
     Type: String
-    Description: Nome base para a stack de entrega (Front-end)
-  
+
   ProjetoNomeBackend:
     Type: String
     Default: "cadastro-aplicacao-prod"
-    Description: Nome base para a stack de aplicacao (Backend)
+
 
   HostedZoneId:
     Type: String
-    Description: ID da Zona Hospedada no Route 53
     
+
   DominioNome:
     Type: String
-    Description: Dominio principal (ex: asantanadev.com)
+
     
   ALBDomain:
     Type: String
-    Description: Subdominio da API (ex: api.asantanadev.com)
+    
 
 Resources:
   # =========================================================
@@ -34,10 +33,9 @@ Resources:
       Name: !Sub "${DominioNome}."
       Type: A
       AliasTarget:
-        # Importa dinamicamente da Stack de Entrega
         DNSName: !ImportValue 
           Fn::Sub: "${ProjetoNome}-CloudFrontURL" 
-        HostedZoneId: Z2FDTNDATAQYW2 # ID fixo mundial do CloudFront
+        HostedZoneId: Z2FDTNDATAQYW2 
         EvaluateTargetHealth: false
 
   # =========================================================
@@ -50,10 +48,8 @@ Resources:
       Name: !Sub "${ALBDomain}."
       Type: A
       AliasTarget:
-        # Importa dinamicamente da Stack de Aplicacao
         DNSName: !ImportValue 
           Fn::Sub: "${ProjetoNomeBackend}-AppURL"
-        # ID da zona do ALB em us-east-1 é fixo
         HostedZoneId: Z35SXDOTRQ7X7K 
         EvaluateTargetHealth: true
 
