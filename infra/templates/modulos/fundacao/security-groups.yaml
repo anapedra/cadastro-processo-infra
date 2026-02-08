@@ -29,6 +29,11 @@ Resources:
       SecurityGroupEgress:
         - IpProtocol: -1
           CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Project
+          Value: !Ref ProjetoNome
+        - Key: Name
+          Value: !Sub '${ProjetoNome}-alb-sg'
 
 
   # =========================================================
@@ -47,6 +52,11 @@ Resources:
       SecurityGroupEgress:
         - IpProtocol: -1
           CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Project
+          Value: !Ref ProjetoNome
+        - Key: Name
+          Value: !Sub '${ProjetoNome}-backend-sg'
 
 
   # =========================================================
@@ -62,13 +72,15 @@ Resources:
           FromPort: 5432
           ToPort: 5432
           SourceSecurityGroupId: !Ref BackendSecurityGroup
+      Tags:
+        - Key: Project
+          Value: !Ref ProjetoNome
+        - Key: Name
+          Value: !Sub '${ProjetoNome}-db-sg'
 
 
   # =========================================================
   # IAM ROLE DA EC2
-  # ALTERAÇÃO IMPORTANTE:
-  # - adicionada policy inline permitindo ssm:GetParameter
-  # - isso permite a instância buscar a senha no Parameter Store
   # =========================================================
   EC2InstanceRole:
     Type: AWS::IAM::Role
@@ -86,8 +98,6 @@ Resources:
         - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
         - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
 
-      
-      # Permite SOMENTE ler a senha específica no Parameter Store
       Policies:
         - PolicyName: ReadDBPasswordFromSSM
           PolicyDocument:
@@ -98,9 +108,13 @@ Resources:
                   - ssm:GetParameter
                 Resource: arn:aws:ssm:us-east-1:*:parameter/cadastro/prod/db/password
 
+      Tags:
+        - Key: Project
+          Value: !Ref ProjetoNome
+
 
   # =========================================================
-  # InstanceProfile usado pelo ASG/LaunchTemplate
+  # InstanceProfile usado pelo ASG / LaunchTemplate
   # =========================================================
   EC2InstanceProfile:
     Type: AWS::IAM::InstanceProfile
@@ -118,6 +132,7 @@ Outputs:
 
   DBSG:
     Value: !Ref DBSecurityGroup
-    
+
   ALBSG:
     Value: !Ref ALBSecurityGroup
+
