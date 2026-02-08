@@ -4,26 +4,16 @@ Description: ALB e Target Group - Porta de entrada pública com HTTPS (TLS)
 Parameters:
   ProjetoNome:
     Type: String
-
   FundacaoStack:
     Type: String
-
-  # ===============================
-  # NOVO: Recebe o ARN do certificado
-  # Vem do GitHub Actions (vars.CERTIFICATE_ARN)
-  # Necessário para habilitar HTTPS no ALB
-  # ===============================
   CertificateArn:
     Type: String
     Description: ARN do certificado TLS do ACM
 
-
 Resources:
 
   # ===============================
-  # Target Group (NÃO mudou)
-  # Continua HTTP interno → ALB conversa com EC2 via 8080
-  # HTTPS fica somente na borda (ALB)
+  # Target Group
   # ===============================
   TargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
@@ -31,11 +21,8 @@ Resources:
       Name: !Sub "${ProjetoNome}-tg"
       Port: 8080
       Protocol: HTTP
-
-      VpcId:
-        Fn::ImportValue:
-          !Sub "${FundacaoStack}-VpcId"
-
+      VpcId: 
+        Fn::ImportValue: !Sub "${FundacaoStack}-VpcId"
       HealthCheckPath: /actuator/health
       HealthCheckIntervalSeconds: 30
       HealthCheckTimeoutSeconds: 5
@@ -43,13 +30,10 @@ Resources:
       UnhealthyThresholdCount: 3
       Matcher:
         HttpCode: 200
-
       TargetType: instance
-
       TargetGroupAttributes:
         - Key: deregistration_delay.timeout_seconds
           Value: '30'
-
 
   # ===============================
   # ALB público
@@ -58,64 +42,50 @@ Resources:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
       Name: !Sub "${ProjetoNome}-alb"
-
       Subnets:
-        - Fn::ImportValue:
-            !Sub "${FundacaoStack}-PublicSubnet1"
-        - Fn::ImportValue:
-            !Sub "${FundacaoStack}-PublicSubnet2"
-
+        - Fn::ImportValue: !Sub "${FundacaoStack}-PublicSubnet1"
+        - Fn::ImportValue: !Sub "${FundacaoStack}-PublicSubnet2"
       SecurityGroups:
-        - Fn::ImportValue:
-            !Sub "${FundacaoStack}-ALBSG"
-
+        - Fn::ImportValue: !Sub "${FundacaoStack}-ALBSG"
       Type: application
 
-
-  # ======================================================
-  # NOVO: Listener HTTP (80)
-  # Apenas redireciona para HTTPS
-  # Padrão profissional: nunca servir HTTP direto
-  # ======================================================
+  # ===============================
+  # Listener HTTP (Redireciona para 443)
+  # ===============================
   ListenerHTTP:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
       LoadBalancerArn: !Ref LoadBalancer
       Port: 80
       Protocol: HTTP
-
       DefaultActions:
         - Type: redirect
           RedirectConfig:
             Protocol: HTTPS
-            Port: 443
+            Port: '443'
             StatusCode: HTTP_301
 
-
-  # ======================================================
-  # NOVO: Listener HTTPS (443)
-  # Aqui usamos o certificado do ACM
-  # Recebe tráfego público seguro
-  # ======================================================
+  # ===============================
+  # Listener HTTPS (Tráfego Seguro)
+  # ===============================
   ListenerHTTPS:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
       LoadBalancerArn: !Ref LoadBalancer
       Port: 443
       Protocol: HTTPS
-
       Certificates:
         - CertificateArn: !Ref CertificateArn
-
       DefaultActions:
         - Type: forward
           TargetGroupArn: !Ref TargetGroup
 
-
 Outputs:
   TargetGroupArn:
     Value: !Ref TargetGroup
+    Export:
+      Name: !Sub "${AWS::StackName}-TargetGroupArn"
 
-  # Continua funcionando igual, agora servindo HTTPS
   AppURL:
+    Description: URL pública via HTTPS
     Value: !GetAtt LoadBalancer.DNSName
