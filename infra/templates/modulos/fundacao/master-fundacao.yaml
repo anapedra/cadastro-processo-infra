@@ -4,26 +4,12 @@ Description: Agregador Master da Fundação - Rede, Segurança e Banco.
 Parameters:
   ProjetoNome:
     Type: String
-
   VpcCIDR:
     Type: String
-
   DBName:
     Type: String
 
-  # CORREÇÃO: Busca automática no SSM
-  DBUser:
-    Type: 'AWS::SSM::Parameter::Value<String>'
-    Default: '/cadastro/prod/db/user'
-
-  # CORREÇÃO: Busca automática no SSM
-  DBPassword:
-    Type: 'AWS::SSM::Parameter::Value<String>'
-    Default: '/cadastro/prod/db/password'
-    NoEcho: true
-
 Resources:
-
   StackRede:
     Type: AWS::CloudFormation::Stack
     Properties:
@@ -31,7 +17,6 @@ Resources:
       Parameters:
         ProjetoNome: !Ref ProjetoNome
         VpcCIDR: !Ref VpcCIDR
-
 
   StackSeguranca:
     Type: AWS::CloudFormation::Stack
@@ -41,7 +26,6 @@ Resources:
       Parameters:
         ProjetoNome: !Ref ProjetoNome
         VpcId: !GetAtt StackRede.Outputs.VpcId
-
 
   StackBanco:
     Type: AWS::CloudFormation::Stack
@@ -54,46 +38,37 @@ Resources:
         PrivateSubnets: !GetAtt StackRede.Outputs.PrivateSubnets
         DBSecurityGroup: !GetAtt StackSeguranca.Outputs.DBSG
         DBName: !Ref DBName
-        DBUser: !Ref DBUser
-        DBPassword: !Ref DBPassword
-
+        # CORREÇÃO: Removido DBUser e DBPassword daqui.
 
 Outputs:
   VpcId:
     Value: !GetAtt StackRede.Outputs.VpcId
     Export:
       Name: !Sub "${AWS::StackName}-VpcId"
-
   PublicSubnet1:
     Value: !GetAtt StackRede.Outputs.PublicSubnet1
     Export:
       Name: !Sub "${AWS::StackName}-PublicSubnet1"
-
   PublicSubnet2:
     Value: !GetAtt StackRede.Outputs.PublicSubnet2
     Export:
       Name: !Sub "${AWS::StackName}-PublicSubnet2"
-
   PrivateSubnets:
     Value: !GetAtt StackRede.Outputs.PrivateSubnets
     Export:
       Name: !Sub "${AWS::StackName}-PrivateSubnets"
-
   BackendSG:
     Value: !GetAtt StackSeguranca.Outputs.BackendSG
     Export:
       Name: !Sub "${AWS::StackName}-BackendSG"
-
   ALBSG:
     Value: !GetAtt StackSeguranca.Outputs.ALBSG
     Export:
       Name: !Sub "${AWS::StackName}-ALBSG"
-
   InstanceProfile:
     Value: !GetAtt StackSeguranca.Outputs.InstanceProfile
     Export:
       Name: !Sub "${AWS::StackName}-InstanceProfile"
-
   DBEndpoint:
     Value: !GetAtt StackBanco.Outputs.Endpoint
     Export:
