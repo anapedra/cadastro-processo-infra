@@ -1,0 +1,55 @@
+name: CD - Deploy Backend Profissional
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'back/**' # Roda apenas se houver mudanças no backend
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # Define permissões necessárias para o OIDC assumir a Role da AWS
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Configurar Credenciais AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'corretto'
+          java-version: '17'
+
+      - name: Build do JAR
+        run: |
+          cd back/cadastros-usuario
+          chmod +x ./mvnw
+          ./mvnw clean package -DskipTests
+
+      - name: Upload JAR para S3
+        run: |
+          # Envia o JAR para o bucket definido nas suas variáveis
+          aws s3 cp back/cadastros-usuario/target/*.jar s3://${{ vars.BUCKET_TEMPLATES }}/app.jar
+
+      - name: Deploy via SSM (Substitui SSH)
+        run: |
+          # O comando SSM instrui o ASG a baixar o novo JAR e reiniciar a aplicação
+          aws ssm send-command \
+            --document-name "AWS-RunShellScript" \
+            --targets "Key=tag:aws:autoscaling:groupName,Values=${{ vars.PROJETO_NOME }}-asg" \
+            --parameters 'commands=[
+              "aws s3 cp s3://${{ vars.BUCKET_TEMPLATES }}/app.jar /home/ec2-user/app.jar",
+              "chown ec2-user:ec2-user /home/ec2-user/app.jar",
+              "fuser -k 8080/tcp || true",
+              "sudo -u ec2-user nohup /home/ec2-user/run.sh > /home/ec2-user/app.log 2>&1 &"
+            ]'
