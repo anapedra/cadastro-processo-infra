@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: ASG e Launch Template - Automação total (Download S3 + Auto Run).
+Description: ASG e Launch Template - Automação total com Secrets Manager e JQ.
 
 Parameters:
   ProjetoNome:
@@ -19,51 +19,67 @@ Resources:
         InstanceType: t3.micro
 
         IamInstanceProfile:
-          Name: !ImportValue 
+          Name: !ImportValue
             Fn::Sub: "${FundacaoStack}-InstanceProfile"
 
         SecurityGroupIds:
-          - !ImportValue 
-            Fn::Sub: "${FundacaoStack}-BackendSG"
+          - !ImportValue
+              Fn::Sub: "${FundacaoStack}-BackendSG"
 
         UserData:
           Fn::Base64:
             Fn::Sub:
               - |
                 #!/bin/bash
-                # Redireciona logs para debug (Verificar em /var/log/user-data.log)
+                set -euo pipefail
+
+                # Log do UserData para debug
                 exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
 
-                # 1. Instala dependências
+                echo "Iniciando provisionamento..."
                 yum update -y
-                yum install -y java-17-amazon-corretto-devel aws-cli
+                yum install -y java-17-amazon-corretto-devel aws-cli jq
 
-                # 2. Baixa JAR do S3
+                # 1) Baixa o JAR do S3
                 aws s3 cp s3://asantanadev-cfn-templates/app.jar /home/ec2-user/app.jar
                 chown ec2-user:ec2-user /home/ec2-user/app.jar
 
-                # 3. BUSCA CREDENCIAIS NO SSM (Com Fallback para os dados fixos que você definiu)
-                DB_USER=$(aws ssm get-parameter --name "/cadastro/prod/db/user" --with-decryption --query "Parameter.Value" --output text || echo "cadastro_admin")
-                DB_PASSWORD=$(aws ssm get-parameter --name "/cadastro/prod/db/password" --with-decryption --query "Parameter.Value" --output text || echo "InitialStrongPassword123!")
-
-                # 4. Cria script de execução (O uso de \$ impede o CloudFormation de tentar resolver a variável prematuramente)
-                cat <<EOF > /home/ec2-user/run.sh
+                # 2) Cria o run.sh dinâmico (Consumindo Secrets Manager)
+                cat > /home/ec2-user/run.sh <<'EOF'
                 #!/bin/bash
+                set -euo pipefail
+
+                # Busca o JSON do segredo gerado pelo RDS
+                SECRET_NAME="/${PROJETO_NOME}/prod/db/credentials"
+                REGION="us-east-1"
+                
+                SECRET_JSON=$(aws secretsmanager get-secret-value --secret-id $SECRET_NAME --region $REGION --query SecretString --output text)
+
+                # Extrai usuário e senha via JQ
+                DB_USER=$(echo $SECRET_JSON | jq -r .username)
+                DB_PASSWORD=$(echo $SECRET_JSON | jq -r .password)
+                
+                # Execução do Java com Dialeto e Endpoint dinâmico
                 java -Xmx512m -jar /home/ec2-user/app.jar \
                   --spring.profiles.active=prod \
-                  --spring.datasource.url=jdbc:postgresql://${DBHost}:5432/cadastros_usuario \
-                  --spring.datasource.username=\$DB_USER \
-                  --spring.datasource.password=\$DB_PASSWORD
+                  --spring.datasource.url="jdbc:postgresql://${DB_ENDPOINT}:5432/cadastros_usuario" \
+                  --spring.datasource.username="$DB_USER" \
+                  --spring.datasource.password="$DB_PASSWORD" \
+                  --spring.jpa.database-platform=org.hibernate.dialect.PostgreSQLDialect \
+                  --spring.datasource.hikari.initialization-fail-timeout=0
                 EOF
 
-                chmod +x /home/ec2-user/run.sh
+                # Ajusta permissões
                 chown ec2-user:ec2-user /home/ec2-user/run.sh
+                chmod +x /home/ec2-user/run.sh
 
-                # 5. Inicia aplicação em background
-                sudo -u ec2-user nohup /home/ec2-user/run.sh > /home/ec2-user/app.log 2>&1 &
-
-              - DBHost: !ImportValue 
+                # 3) Executa em background
+                echo "Iniciando aplicação Java..."
+                sudo -u ec2-user nohup /home/ec2-user/run.sh > /home/ec2-user/app-exec.log 2>&1 &
+                
+              - DB_ENDPOINT: !ImportValue
                   Fn::Sub: "${FundacaoStack}-DBEndpoint"
+                PROJETO_NOME: !Ref ProjetoNome
 
   BackendASG:
     Type: AWS::AutoScaling::AutoScalingGroup
@@ -85,4 +101,3 @@ Resources:
 Outputs:
   AsgName:
     Value: !Ref BackendASG
-
