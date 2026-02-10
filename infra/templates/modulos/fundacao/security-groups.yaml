@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Configuração de Firewalls e Permissões sem travamento de rede + acesso seguro ao SSM.
+Description: Configuração de Firewalls e Permissões - Alinhamento total com Secrets Manager.
 
 Parameters:
   ProjetoNome:
@@ -10,7 +10,7 @@ Parameters:
 Resources:
 
   # =========================================================
-  # SG do Load Balancer: expõe HTTP/HTTPS para internet
+  # SG do Load Balancer
   # =========================================================
   ALBSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -30,19 +30,16 @@ Resources:
         - IpProtocol: -1
           CidrIp: 0.0.0.0/0
       Tags:
-        - Key: Project
-          Value: !Ref ProjetoNome
         - Key: Name
           Value: !Sub '${ProjetoNome}-alb-sg'
 
-
   # =========================================================
-  # SG do Backend (Java): só recebe do ALB
+  # SG do Backend (Java)
   # =========================================================
   BackendSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Porta 8080 liberada para o ALB e Saida para NAT
+      GroupDescription: Porta 8080 liberada para o ALB
       VpcId: !Ref VpcId
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -53,14 +50,11 @@ Resources:
         - IpProtocol: -1
           CidrIp: 0.0.0.0/0
       Tags:
-        - Key: Project
-          Value: !Ref ProjetoNome
         - Key: Name
           Value: !Sub '${ProjetoNome}-backend-sg'
 
-
   # =========================================================
-  # SG do Banco (RDS): totalmente privado
+  # SG do Banco (RDS)
   # =========================================================
   DBSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -73,14 +67,11 @@ Resources:
           ToPort: 5432
           SourceSecurityGroupId: !Ref BackendSecurityGroup
       Tags:
-        - Key: Project
-          Value: !Ref ProjetoNome
         - Key: Name
           Value: !Sub '${ProjetoNome}-db-sg'
 
-
   # =========================================================
-  # IAM ROLE DA EC2
+  # IAM ROLE DA EC2: Acesso ao Secrets Manager
   # =========================================================
   EC2InstanceRole:
     Type: AWS::IAM::Role
@@ -92,47 +83,36 @@ Resources:
             Principal:
               Service: ec2.amazonaws.com
             Action: sts:AssumeRole
-
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
         - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
         - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
-
       Policies:
-        - PolicyName: ReadDBPasswordFromSSM
+        - PolicyName: ReadRDSSecretFromSecretsManager
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
               - Effect: Allow
                 Action:
-                  - ssm:GetParameter
-                Resource: arn:aws:ssm:us-east-1:*:parameter/cadastro/prod/db/password
-
+                  - secretsmanager:GetSecretValue
+                # Acesso restrito ao novo cofre criado pelo RDS
+                Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:/${ProjetoNome}/prod/db/credentials-*"
       Tags:
         - Key: Project
           Value: !Ref ProjetoNome
 
-
-  # =========================================================
-  # InstanceProfile usado pelo ASG / LaunchTemplate
-  # =========================================================
   EC2InstanceProfile:
     Type: AWS::IAM::InstanceProfile
     Properties:
       Roles:
         - !Ref EC2InstanceRole
 
-
 Outputs:
   InstanceProfile:
     Value: !Ref EC2InstanceProfile
-
   BackendSG:
     Value: !Ref BackendSecurityGroup
-
   DBSG:
     Value: !Ref DBSecurityGroup
-
   ALBSG:
     Value: !Ref ALBSecurityGroup
-
