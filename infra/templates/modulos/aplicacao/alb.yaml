@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: ALB e Target Group - Porta de entrada pública com HTTPS (TLS)
+Description: ALB e Target Group - Porta de entrada pública com HTTPS corrigido.
 
 Parameters:
   ProjetoNome:
@@ -13,7 +13,7 @@ Parameters:
 Resources:
 
   # ===============================
-  # Target Group
+  # Target Group (Ajustado para o Health Check do Spring)
   # ===============================
   TargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
@@ -23,13 +23,14 @@ Resources:
       Protocol: HTTP
       VpcId: 
         Fn::ImportValue: !Sub "${FundacaoStack}-VpcId"
-      HealthCheckPath: /actuator/health
-      HealthCheckIntervalSeconds: 30
-      HealthCheckTimeoutSeconds: 5
+      # Ajustado para bater com o seu application.properties
+      HealthCheckPath: /actuator/health/readiness
+      HealthCheckIntervalSeconds: 35
+      HealthCheckTimeoutSeconds: 10
       HealthyThresholdCount: 2
-      UnhealthyThresholdCount: 3
+      UnhealthyThresholdCount: 5 # Aumentado para dar mais chances à instância no boot
       Matcher:
-        HttpCode: 200
+        HttpCode: '200'
       TargetType: instance
       TargetGroupAttributes:
         - Key: deregistration_delay.timeout_seconds
@@ -50,7 +51,7 @@ Resources:
       Type: application
 
   # ===============================
-  # Listener HTTP (Redireciona para 443)
+  # Listeners (HTTP -> HTTPS -> Forward)
   # ===============================
   ListenerHTTP:
     Type: AWS::ElasticLoadBalancingV2::Listener
@@ -65,9 +66,6 @@ Resources:
             Port: '443'
             StatusCode: HTTP_301
 
-  # ===============================
-  # Listener HTTPS (Tráfego Seguro)
-  # ===============================
   ListenerHTTPS:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
@@ -82,9 +80,8 @@ Resources:
 
 Outputs:
   TargetGroupArn:
+    Description: ARN do Target Group para ser capturado pelo Master
     Value: !Ref TargetGroup
-    Export:
-      Name: !Sub "${AWS::StackName}-TargetGroupArn"
 
   AppURL:
     Description: URL pública via HTTPS

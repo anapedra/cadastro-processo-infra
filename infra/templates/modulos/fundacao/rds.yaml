@@ -1,30 +1,35 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: RDS PostgreSQL v16.8 - Segurança Máxima e Rede Fluida.
+Description: RDS PostgreSQL v16.8 - Segurança Máxima com Secrets Manager e Rede Privada (Sem interferência humana).
 
 Parameters:
   ProjetoNome:
     Type: String
-
   VpcId:
     Type: AWS::EC2::VPC::Id
-
   PrivateSubnets:
     Type: List<AWS::EC2::Subnet::Id>
-
   DBSecurityGroup:
     Type: AWS::EC2::SecurityGroup::Id
-
   DBName:
     Type: String
-
   DBInstanceClass:
     Type: String
     Default: db.t3.micro
 
 Resources:
-  # =========================================================
-  # Subnet Group do RDS (somente subnets privadas)
-  # =========================================================
+  # 1. Gerador Automático de Segredos (A única fonte da verdade)
+  DBSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub "/${ProjetoNome}/prod/db/credentials"
+      Description: !Sub "Credenciais automáticas do RDS para ${ProjetoNome}"
+      GenerateSecretString:
+        SecretStringTemplate: '{"username": "cadastro_admin"}'
+        GenerateStringKey: "password"
+        PasswordLength: 16
+        ExcludeCharacters: '"@/\'
+
+  # 2. Grupo de Subnets (Rede Privada)
   DBSubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
     Properties:
@@ -34,38 +39,33 @@ Resources:
         - Key: Name
           Value: !Sub "${ProjetoNome}-db-subnet-group"
 
-  # =========================================================
-  # Instância RDS PostgreSQL
-  # Credenciais NÃO vêm de Parameters (proibido pelo CFN)
-  # =========================================================
+  # 3. Instância RDS (Consome o Segredo dinamicamente)
   RDSInstance:
     Type: AWS::RDS::DBInstance
     Properties:
       DBName: !Ref DBName
       Engine: postgres
       EngineVersion: "16.8"
-
-      # Credencial inicial apenas para criação do banco
-      MasterUsername: cadastro_admin
-      MasterUserPassword: InitialStrongPassword123!
-
+      # O CloudFormation resolve a senha gerada no passo 1 automaticamente
+      MasterUsername: !Join ["", ["{{resolve:secretsmanager:", !Ref DBSecret, ":SecretString:username}}"]]
+      MasterUserPassword: !Join ["", ["{{resolve:secretsmanager:", !Ref DBSecret, ":SecretString:password}}"]]
       DBInstanceClass: !Ref DBInstanceClass
       AllocatedStorage: 20
       StorageType: gp3
-
       DBSubnetGroupName: !Ref DBSubnetGroup
       VPCSecurityGroups:
         - !Ref DBSecurityGroup
-
       PubliclyAccessible: false
       BackupRetentionPeriod: 7
       DeleteAutomatedBackups: false
-
       Tags:
         - Key: Name
           Value: !Sub "${ProjetoNome}-database"
 
 Outputs:
   Endpoint:
-    Description: Host do banco para a variável DB_URL do Spring Boot
+    Description: Host do banco para o Backend
     Value: !GetAtt RDSInstance.Endpoint.Address
+  SecretARN:
+    Description: ARN do Segredo para acesso via IAM Role
+    Value: !Ref DBSecret
