@@ -38,6 +38,7 @@ public class UserDTO {
         this.tel = user.getTel();
         this.dataNascimento = user.getDataNascimento();
         this.idade = user.getIdade();
+        
     }
 
 
