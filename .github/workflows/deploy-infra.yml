@@ -14,7 +14,7 @@ env:
 
 jobs:
 # =========================================
-# 1. FUNDACAO (VPC + SG + RDS com Secrets)
+# 1. FUNDACAO (VPC + SG + RDS Automático)
 # =========================================
   fundacao:
     runs-on: ubuntu-latest
@@ -31,7 +31,10 @@ jobs:
             --stack-name cadastro-fundacao-prod \
             --template-file infra/templates/modulos/fundacao/master-fundacao.yaml \
             --capabilities CAPABILITY_NAMED_IAM \
-            --parameter-overrides ProjetoNome=${{ vars.STACK_NAME }}
+            --parameter-overrides \
+              ProjetoNome=${{ vars.STACK_NAME }} \
+              VpcCIDR=10.0.0.0/16 \
+              DBName=cadastros_usuario
 
 # =========================================
 # 2. APLICACAO (ALB + ASG)
@@ -84,11 +87,11 @@ jobs:
 
       - name: Upload jar to S3
         run: |
-          # Corrigido para capturar o arquivo exato e renomear para app.jar no S3
+          # Captura o arquivo versionado e renomeia para app.jar no S3 para o UserData encontrar
           aws s3 cp back/cadastros-usuario/target/cadastros-usuario-*.jar s3://${{ env.BUCKET_TEMPLATES }}/app.jar
 
 # =========================================
-# 4. ENTREGA (CloudFront/S3 Frontend)
+# 4. ENTREGA (Frontend Infra)
 # =========================================
   entrega:
     needs: backend
@@ -99,13 +102,15 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ env.AWS_REGION }}
+
       - name: Deploy entrega
         run: |
           aws cloudformation deploy \
             --stack-name cadastro-entrega-prod \
             --template-file infra/templates/modulos/entrega/master-entrega.yaml \
             --capabilities CAPABILITY_NAMED_IAM \
-            --parameter-overrides ProjetoNome=${{ vars.STACK_NAME }}
+            --parameter-overrides \
+              ProjetoNome=${{ vars.STACK_NAME }}
 
 # =========================================
 # 5. DNS (Route53)
@@ -119,6 +124,7 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ env.AWS_REGION }}
+
       - name: Deploy DNS
         run: |
           aws cloudformation deploy \
