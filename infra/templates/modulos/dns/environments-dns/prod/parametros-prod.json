@@ -13,6 +13,6 @@
   },
   {
     "ParameterKey": "ALBDomain",
-    "ParameterValue": "user-service-dev-ALB-144531.us-east-1.elb.amazonaws.com"
+    "ParameterValue": "api.asantanadev.com"
   }
 ]
