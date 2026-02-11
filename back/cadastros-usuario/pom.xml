@@ -43,25 +43,32 @@
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
 
-        <!--ACTUATOR (ESSENCIAL PARA ALB / HEALTH CHECK) -->
+        <!-- ACTUATOR (ESSENCIAL PARA ALB / HEALTH CHECK) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
 
-        <!-- BANCO -->
+        <!-- BANCO (PostgreSQL) -->
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
             <scope>runtime</scope>
         </dependency>
 
+        <!-- FLYWAY (migrações) -->
         <dependency>
             <groupId>org.flywaydb</groupId>
-             <artifactId>flyway-core</artifactId>
+            <artifactId>flyway-core</artifactId>
         </dependency>
 
+        <!-- SUPORTE DO FLYWAY PARA POSTGRESQL 16+ (OBRIGATÓRIO no seu caso) -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
+        </dependency>
 
+        <!-- H2 (ambiente local/teste) -->
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
