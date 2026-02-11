@@ -1,4 +1,4 @@
-name: Infra + Backend Deploy
+name: Infra + Backend Deploy Professional
 
 on:
   push:
@@ -14,7 +14,7 @@ env:
 
 jobs:
 # =========================================
-# FUNDACAO (VPC + SG + RDS)
+# 1. FUNDACAO (VPC + SG + RDS com Secrets)
 # =========================================
   fundacao:
     runs-on: ubuntu-latest
@@ -25,23 +25,16 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Upload templates
-        run: |
-          aws s3 cp infra/templates/modulos/fundacao s3://${{ env.BUCKET_TEMPLATES }}/ --recursive --exclude "environments-*/*"
-
       - name: Deploy fundacao
         run: |
           aws cloudformation deploy \
             --stack-name cadastro-fundacao-prod \
             --template-file infra/templates/modulos/fundacao/master-fundacao.yaml \
             --capabilities CAPABILITY_NAMED_IAM \
-            --parameter-overrides \
-              ProjetoNome=${{ vars.STACK_NAME }} \
-              VpcCIDR=10.0.0.0/16 \
-              DBName=cadastros_usuario
+            --parameter-overrides ProjetoNome=${{ vars.STACK_NAME }}
 
 # =========================================
-# APLICACAO (ALB + ASG + HTTPS) - CORRIGIDO
+# 2. APLICACAO (ALB + ASG)
 # =========================================
   aplicacao:
     needs: fundacao
@@ -52,10 +45,6 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ env.AWS_REGION }}
-
-      - name: Upload templates
-        run: |
-          aws s3 cp infra/templates/modulos/aplicacao s3://${{ env.BUCKET_TEMPLATES }}/ --recursive --exclude "environments-*/*"
 
       - name: Deploy aplicacao
         run: |
@@ -69,7 +58,7 @@ jobs:
               CertificateArn=${{ vars.CERTIFICATE_ARN }}
 
 # =========================================
-# BACKEND (build jar + upload S3)
+# 3. BACKEND (Build Real e Upload corrigido)
 # =========================================
   backend:
     needs: aplicacao
@@ -80,6 +69,8 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
+          cache: 'maven'
+
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
@@ -88,14 +79,16 @@ jobs:
       - name: Build Spring Boot
         run: |
           cd back/cadastros-usuario
+          chmod +x mvnw
           ./mvnw clean package -DskipTests
 
       - name: Upload jar to S3
         run: |
-          aws s3 cp back/cadastros-usuario/target/*.jar s3://${{ env.BUCKET_TEMPLATES }}/app.jar
+          # Corrigido para capturar o arquivo exato e renomear para app.jar no S3
+          aws s3 cp back/cadastros-usuario/target/cadastros-usuario-*.jar s3://${{ env.BUCKET_TEMPLATES }}/app.jar
 
 # =========================================
-# ENTREGA (frontend infra)
+# 4. ENTREGA (CloudFront/S3 Frontend)
 # =========================================
   entrega:
     needs: backend
@@ -106,22 +99,16 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ env.AWS_REGION }}
-
-      - name: Upload templates
-        run: |
-          aws s3 cp infra/templates/modulos/entrega s3://${{ env.BUCKET_TEMPLATES }}/ --recursive --exclude "environments-*/*"
-
       - name: Deploy entrega
         run: |
           aws cloudformation deploy \
             --stack-name cadastro-entrega-prod \
             --template-file infra/templates/modulos/entrega/master-entrega.yaml \
             --capabilities CAPABILITY_NAMED_IAM \
-            --parameter-overrides \
-              ProjetoNome=${{ vars.STACK_NAME }}
+            --parameter-overrides ProjetoNome=${{ vars.STACK_NAME }}
 
 # =========================================
-# DNS (Route53) - A PONTA FINAL
+# 5. DNS (Route53)
 # =========================================
   dns:
     needs: entrega
@@ -132,7 +119,6 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ env.AWS_REGION }}
-
       - name: Deploy DNS
         run: |
           aws cloudformation deploy \
@@ -141,6 +127,4 @@ jobs:
             --capabilities CAPABILITY_NAMED_IAM \
             --parameter-overrides \
               ProjetoNome=${{ vars.STACK_NAME }} \
-              HostedZoneId=${{ vars.HOSTED_ZONE_ID }} \
-              DominioNome=asantanadev.com \
-              ALBDomain=api.asantanadev.com
+              HostedZoneId=${{ vars.HOSTED_ZONE_ID }}
